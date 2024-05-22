@@ -1,0 +1,460 @@
+void HHT_BasicTxMenu()
+{
+	sPlcSimTxTestParams testParams;
+	// test mode variables
+	u8              dbc = 0, pattern, rts = 0, cts = 0, rsof = 0;
+    u16             frmLen;
+	u8              stdModeSel;
+	eRoboTestMode   roboTestMode;
+	eFrmMcstMode    mcstMode;
+	u8              cap;
+//	u8              plcMultiPktTest;
+	u32             numFrames;
+	u16             miniRoboFrmLenMax;
+	u16             stdRoboFrmLenMax;
+	u32             delay;
+	u8              input[8];
+
+    // get robo mode max lens for Data
+	miniRoboFrmLenMax             = HYBRII_MINIROBO_DATALEN_MAX;
+	stdRoboFrmLenMax			  = HYBRII_STD1PBHSROBO_DATALEN_MAX;
+
+#ifndef MPER    
+    {
+        printf("Do DBC Test?  : 1 = YES, other = No  :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%bu",&dbc) >= 1)
+			break;
+		}
+		if (dbc != 1)
+		{
+		    dbc = 0;
+		//printf("DBC command = %x\n", dbc);
+		//else
+		    printf("Do RTS/CTS Tx Test?  : 1 = YES, other = No  :: ");
+            while (getline(input, sizeof(input)) > 0)
+		    {
+			   if(sscanf(input,"%bu",&rts) >= 1)
+			   break;
+		    }
+		    if (rts!= 1)
+			{
+		       rts = 0;
+			//else
+			//{
+			    printf("Do Reverse SOF Tx Test?  : 1 = YES, other = No  :: ");
+                while (getline(input, sizeof(input)) > 0)
+		        {
+			       if(sscanf(input,"%bu",&rsof) >= 1)
+			       break;
+		        }
+		        if (rsof!= 1)
+		           rsof= 0;
+			}
+		}			
+    }
+#endif
+#ifdef MPER
+  if (dbc == 1)  // [YM] Do DBC Test
+  {
+
+	do
+	{
+		printf("Enter DBC Test Pattern: 1-1RoBo+1MiniRoBo, 2-3 MiniRobo, 3-2MiniRoBo+1HSRoBo1PB,\n");
+		printf("4-1MiniRoBo+1HSRoBo2PB, 5-2HSRoBo1PB, 6-1MiniRoBo+1HSRoBo3PB, 7-1RoBo+1HSRoBo1PB, 8-1HSRoBo1PB+1HSRoBo2PB  :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%bu",&pattern) >= 1)
+			break;
+		}
+	}while(pattern<1 && pattern>6);
+
+	do
+	{
+		printf("Enter McstMode: 0-Ucst, 1-Mcst, 2=Mnbcst  :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%bu",&mcstMode) >= 1)
+			break;
+		}
+	}while(mcstMode > 2);
+	cap = 0;
+/*
+	{
+		printf("Enter Cap or Plid Value for Test Packet (0~3, 4 = all caps): ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%bu",&cap) < 5)  //[YM] add cap = 4 for random select cap 0~3
+			break;
+		}
+	}while(cap > 4); 
+*/
+    if(!gHpgpHalCB.diagModeEnb)
+	{
+		printf("Enter number of frames:  N-NumOfFrames :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%lu",&numFrames) >= 1)
+			break;
+		}
+	}
+	else
+	{
+		numFrames = 1;
+	}
+
+	printf("Enter delay (unit of 64 timer ticks)    :: ");
+	while (getline(input, sizeof(input)) > 0)
+	{
+		if(sscanf(input,"%lu",&delay) >= 1)
+		break;
+	}
+
+	// Construct Test Packet
+	// fill tx test params structure
+	testParams.numFrames      = numFrames;
+	if(!testParams.numFrames)
+	{
+		testParams.contMode = 1;
+	}
+	else
+	{
+		testParams.contMode = 0;
+	}
+	testParams.dbc            = dbc;
+	testParams.pattern        = pattern;
+	testParams.frmLen         = 100;  //Not important here
+	testParams.lenTestMode    = VARY_LEN;
+	testParams.roboTestMode   = 0;  //Not important here
+	testParams.frmType        = 1;
+    testParams.altFrmTypeTest = 0;
+    testParams.altMcstTest    = 0;
+	if (cap == 4)
+	{
+	testParams.plid           = 0;  //[YM] temporary set cap to 0, cap value will be changed in sequence
+	testParams.altPlidTest    = 1;
+	}
+	else
+	{
+	testParams.plid           = cap;
+	testParams.altPlidTest    = 0;		
+	}
+	testParams.stdModeSel     = 1;  // Not important here
+	testParams.mcstMode       = mcstMode;
+	testParams.offsetDW       = 0;
+	testParams.descLen        = HYBRII_CELLBUF_SIZE;
+    testParams.secTestMode    = UNENCRYPTED;
+	testParams.eks            = HPGP_UNENCRYPTED_EKS;
+    testParams.altOffsetDescLenTest = 0;
+	testParams.delay          = delay;
+	testParams.plcMultiPktTest = 1;  // Not important here
+	
+  }
+  else if (rts == 1)
+  {
+    do
+	{
+		printf("Enter TestMode: 0- Tx RTS, 1-Tx CTS  :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%bu",&cts) >= 1)
+			break;
+		}
+	}while(cts > 1);
+	
+    do
+	{
+		printf("Enter McstMode: 0-Ucst, 1-Mcst, 2=Mnbcst  :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%bu",&mcstMode) >= 1)
+			break;
+		}
+	}while(mcstMode > 2);
+	cap = 0;
+
+    if(!gHpgpHalCB.diagModeEnb)
+	{
+		printf("Enter number of frames:  N-NumOfFrames :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%lu",&numFrames) >= 1)
+			break;
+		}
+	}
+	else
+	{
+		numFrames = 1;
+	}
+
+	printf("Enter delay (unit of 64 timer ticks)    :: ");
+	while (getline(input, sizeof(input)) > 0)
+	{
+		if(sscanf(input,"%lu",&delay) >= 1)
+		break;
+	}
+
+	// Construct Test Packet
+	// fill tx test params structure
+	testParams.numFrames      = numFrames;
+	if(!testParams.numFrames)
+	{
+		testParams.contMode = 1;
+	}
+	else
+	{
+		testParams.contMode = 0;
+	}
+	testParams.dbc            = 0;
+	testParams.pattern        = 0;
+	testParams.dt_av          = 3;
+	testParams.frmLen         = 100;  //Not important here
+	testParams.lenTestMode    = FIXED_LEN;
+	testParams.roboTestMode   = 0;  //Not important here
+	if (cts == 1)
+		testParams.frmType        = HPGP_HW_FRMTYPE_CTS;
+	else
+	    testParams.frmType        = HPGP_HW_FRMTYPE_RTS;	
+    testParams.altFrmTypeTest = 0;
+    testParams.altMcstTest    = 0;
+	if (cap == 4)
+	{
+	testParams.plid           = 0;  //[YM] temporary set cap to 0, cap value will be changed in sequence
+	testParams.altPlidTest    = 1;
+	}
+	else
+	{
+	testParams.plid           = cap;
+	testParams.altPlidTest    = 0;		
+	}
+	testParams.stdModeSel     = 1;  // Not important here
+	testParams.mcstMode       = mcstMode;
+	testParams.offsetDW       = 0;
+	testParams.descLen        = HYBRII_CELLBUF_SIZE;
+    testParams.secTestMode    = UNENCRYPTED;
+	testParams.eks            = HPGP_UNENCRYPTED_EKS;
+    testParams.altOffsetDescLenTest = 0;
+	testParams.delay          = delay;
+	testParams.plcMultiPktTest = 0;  // Not important here	
+  }
+  else if (rsof == 1)
+  {
+	
+    do
+	{
+		printf("Enter McstMode: 0-Ucst, 1-Mcst, 2=Mnbcst  :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%bu",&mcstMode) >= 1)
+			break;
+		}
+	}while(mcstMode > 2);
+	cap = 0;
+
+    if(!gHpgpHalCB.diagModeEnb)
+	{
+		printf("Enter number of frames:  N-NumOfFrames :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%lu",&numFrames) >= 1)
+			break;
+		}
+	}
+	else
+	{
+		numFrames = 1;
+	}
+
+	printf("Enter delay (unit of 64 timer ticks)    :: ");
+	while (getline(input, sizeof(input)) > 0)
+	{
+		if(sscanf(input,"%lu",&delay) >= 1)
+		break;
+	}
+
+	// Construct Test Packet
+	// fill tx test params structure
+	testParams.numFrames      = numFrames;
+	if(!testParams.numFrames)
+	{
+		testParams.contMode = 1;
+	}
+	else
+	{
+		testParams.contMode = 0;
+	}
+	
+	testParams.dbc            = 0;
+	testParams.pattern        = 0;
+	testParams.dt_av          = 5;  //RSOF
+	testParams.frmLen         = 100;  //Not important here
+	testParams.lenTestMode    = FIXED_LEN;
+	testParams.roboTestMode   = 0;  //Not important here
+	//if (cts == 1)
+		//testParams.frmType        = HPGP_HW_FRMTYPE_CTS;
+	//else
+	  //  testParams.frmType        = HPGP_HW_FRMTYPE_RTS;
+	
+    testParams.altFrmTypeTest = 0;
+    testParams.altMcstTest    = 0;
+	if (cap == 4)
+	{
+	testParams.plid           = 0;  //[YM] temporary set cap to 0, cap value will be changed in sequence
+	testParams.altPlidTest    = 1;
+	}
+	else
+	{
+	testParams.plid           = cap;
+	testParams.altPlidTest    = 0;		
+	}
+	testParams.stdModeSel     = 1;  // Not important here
+	testParams.mcstMode       = mcstMode;
+	testParams.offsetDW       = 0;
+	testParams.descLen        = HYBRII_CELLBUF_SIZE;
+    testParams.secTestMode    = UNENCRYPTED;
+	testParams.eks            = HPGP_UNENCRYPTED_EKS;
+    testParams.altOffsetDescLenTest = 0;
+	testParams.delay          = delay;
+	testParams.plcMultiPktTest = 0;  // Not important here	
+  }
+  else
+#endif  //MPER  	
+  {    //regular SOF packet
+	do
+	{
+		#ifdef ER_TEST
+        printf("Enter FrameLen  : 1 to %u -Fixed Len  :: ", ER_PACKET_LIMIT);
+#else
+        printf("Enter FrameLen  : 1 to 1536-Fixed Len  :: ");
+#endif
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%u",&frmLen) >= 1)
+			break;
+		}
+#ifdef ER_TEST
+    }while (frmLen<1 || frmLen> ER_PACKET_LIMIT);
+#else
+    }while (frmLen<1 || frmLen>1530);
+#endif
+
+#ifndef MPER
+	do
+	{
+		printf("Enter McstMode: 0-Ucst, 1-Mcst, 2=Mnbcst  :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%bu",&mcstMode) >= 1)
+			break;
+		}
+	}while(mcstMode > 2);
+#endif
+
+	if( (frmLen > miniRoboFrmLenMax) && (frmLen <= stdRoboFrmLenMax))
+	{
+		printf("Select Std RoboMode : 0-HSRobo, 1- StdRobo :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%bu",&stdModeSel) >= 1)
+			break;
+		}		  
+	}
+
+	{
+		printf("Enter Cap or Plid Value for Test Packet (0~3, 4 = all caps): ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%bu",&cap) < 5)  //[YM] add cap = 4 for random select cap 0~3
+			break;
+		}
+	}while(cap > 4);
+
+	if(!gHpgpHalCB.diagModeEnb)
+	{
+		printf("Enter number of frames:  N-NumOfFrames :: ");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%lu",&numFrames) >= 1)
+			break;
+		}
+	}
+	else
+	{
+		numFrames = 1;
+	}
+#ifdef Packet_grouping0
+    // [YM] New control command for multiple packets in-queue testing 
+    {
+		printf("For multiple packets in-queue testing: N-NumOfFrames in queue before Tx (1 ~ 8)::");
+		while (getline(input, sizeof(input)) > 0)
+		{
+			if(sscanf(input,"%bu",&plcMultiPktTest) > 0)
+            {
+                if (plcMultiPktTest > 8)
+					plcMultiPktTest = 8;
+                //printf(" plcMultiPktTest = %bu\n", plcMultiPktTest);
+			    break;
+            }
+			//plcMultiPktTest = 1;   //[YM] Multiple packet transmission is not supported for Hybrii_B
+		}
+	}
+#endif
+	printf("Enter delay (unit of 64 timer ticks)    :: ");
+	while (getline(input, sizeof(input)) > 0)
+	{
+		if(sscanf(input,"%lu",&delay) >= 1)
+		break;
+	}
+
+	// fill tx test params structure
+	testParams.numFrames      = numFrames;
+	if(!testParams.numFrames)
+	{
+		testParams.contMode = 1;
+	}
+	else
+	{
+		testParams.contMode = 0;
+	}
+	testParams.frmLen         = frmLen;
+	testParams.lenTestMode    = FIXED_LEN;
+	testParams.roboTestMode   = roboTestMode;
+	testParams.frmType        = 1;
+    testParams.altFrmTypeTest = 0;
+    testParams.altMcstTest    = 0;
+	if (cap == 4)
+	{
+	testParams.plid           = 0;  //[YM] temporary set cap to 0, cap value will be changed in sequence
+	testParams.altPlidTest    = 1;
+	}
+	else
+	{
+	testParams.plid           = cap;
+	testParams.altPlidTest    = 0;		
+	}
+	testParams.stdModeSel     = stdModeSel;
+#ifndef	MPER
+	testParams.mcstMode       = mcstMode;
+#else
+    testParams.mcstMode       = 0;  //default set as unicast
+#endif
+	testParams.offsetDW       = 0;
+	testParams.descLen        = HYBRII_CELLBUF_SIZE;
+    testParams.secTestMode    = UNENCRYPTED;
+	testParams.eks            = HPGP_UNENCRYPTED_EKS;
+    testParams.altOffsetDescLenTest = 0;
+	testParams.delay          = delay;
+	testParams.plcMultiPktTest = 1;
+	// Trigger the tx test
+#ifdef Packet_grouping0
+	if (plcMultiPktTest > 1)
+	{
+	    gHpgpHalCB.plcMultiPktTest = plcMultiPktTest;  //[YM] Enable multiple packet queueing for Tx test		
+	}
+#endif	
+    //printf(" (A) gHpgpHalCB.plcMultiPktTest = %bu\n", gHpgpHalCB.plcMultiPktTest);
+  	}  
+	HHT_SimulateTx(&testParams);
+	//gHpgpHalCB.plcMultiPktTest = 0;  
+}
